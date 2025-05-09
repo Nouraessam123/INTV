@@ -1,22 +1,11 @@
 import streamlit as st
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import os
-from openai import OpenAI
+from transformers import pipeline
 import re
 
-from dotenv import load_dotenv
-
-
-load_dotenv() 
-
-token = os.environ.get("GITHUB_TOKEN") 
-endpoint = "https://models.inference.ai.azure.com"
-model_name = "gpt-4o-mini"
-
-client = OpenAI(
-    base_url=endpoint,
-    api_key=token,
-)
+# إنشاء واجهة اتصال مع Hugging Face
+generator = pipeline('text-generation', model='gpt-2')  # يمكن استبدال gpt-2 بأي نموذج آخر تفضله
 
 analyzer = SentimentIntensityAnalyzer()
 
@@ -41,15 +30,10 @@ def generate_questions(role):
         f"Generate 3 behavioral and 2 technical interview questions for a {role} role. "
         "Please list only the questions, numbered."
     )
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1.0,
-        top_p=1.0,
-        max_tokens=1000,
-    )
-    content = response.choices[0].message.content.strip()
-    lines = content.split("\n")
+    # استخدام Hugging Face لتوليد الأسئلة
+    result = generator(prompt, max_length=100, num_return_sequences=1)
+    questions_text = result[0]['generated_text'].strip()
+    lines = questions_text.split("\n")
     questions = [line.strip() for line in lines if line.strip() and "?" in line]
     return questions
 
@@ -81,15 +65,9 @@ if st.session_state.questions:
                     f"Rating: X/10"
                 )
 
-                feedback_response = client.chat.completions.create(
-                    model=model_name,
-                    messages=[{"role": "user", "content": feedback_prompt}],
-                    temperature=0.7,
-                    top_p=1.0,
-                    max_tokens=500,
-                )
-
-                feedback_text = feedback_response.choices[0].message.content.strip()
+                # استخدام Hugging Face لتوليد الردود
+                feedback_response = generator(feedback_prompt, max_length=500, num_return_sequences=1)
+                feedback_text = feedback_response[0]['generated_text'].strip()
 
                 # --- SAFELY EXTRACT RATING ---
                 rating = None
